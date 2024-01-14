@@ -2,20 +2,7 @@ import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
 import iziToast from 'izitoast';
 import 'izitoast/dist/css/iziToast.min.css';
-
-const form = document.querySelector('.form');
-const gallery = document.querySelector('.gallery');
-const galleryBox = document.querySelector('.gallery-box');
-const loader = document.querySelector('.loader');
-const input = document.querySelector('input');
-
-const searchParamsDefaults = {
-  key: '41526940-8233d9bee139c8a54ba6bf59b',
-  q: 'cat',
-  image_type: 'photo',
-  orientation: 'horizontal',
-  safesearch: true,
-};
+import axios from "axios";
 
 const lightbox = new SimpleLightbox('.gallery a', {
   nav: true,
@@ -26,59 +13,93 @@ const lightbox = new SimpleLightbox('.gallery a', {
   docClose: true,
 });
 
-function searchImg(params) {
-  return fetch(`https://pixabay.com/api/?${params}`)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(response.statusText);
-      }
-      return response.json();
-    })
-    .then(({ hits }) => {
-      if (hits.length > 0) {
-        const renderImg = hits.reduce((html, hit) => {
-          return (
-            html +
-            `<li class="gallery-item">
-        <a href=${hit.largeImageURL}> 
-          <img class="gallery-img" src =${hit.webformatURL} alt=${hit.tags}/>
+const form = document.querySelector('.form');
+const gallery = document.querySelector('.gallery');
+const loader = document.querySelector('.loader');
+
+
+const api = axios.create({
+  baseURL: "https://pixabay.com/api/",
+  params: { 
+    key: "41526940-8233d9bee139c8a54ba6bf59b",
+    image_type: 'photo',
+    orientation: 'horizontal',
+    safesearch: true,
+    per_page: 40,
+  }
+});
+
+function renderImages(images = []) { 
+  const markup = images.reduce((html, { largeImageURL, webformatURL, tags, likes, views, comments, downloads }) => {
+    return html +
+      `<li class="gallery-item">
+        <a href=${largeImageURL}> 
+          <img class="gallery-img" src =${webformatURL} alt=${tags}/>
         </a>
         <div class="gallery-text-box">
-          <p>Likes: <span class="text-value">${hit.likes}</span></p>
-          <p>Views: <span class="text-value">${hit.views}</span></p>
-          <p>Comments: <span class="text-value">${hit.comments}</span></p>
-          <p>Downloads: <span class="text-value">${hit.downloads}</span></p>
-      </div>
-      </li>`
-          );
-        }, '');
+          <p>Likes: <span class="text-value">${likes}</span></p>
+          <p>Views: <span class="text-value">${views}</span></p>
+          <p>Comments: <span class="text-value">${comments}</span></p>
+          <p>Downloads: <span class="text-value">${downloads}</span></p>
+        </div>
+       </li>`
+    }, '');
+  gallery.insertAdjacentHTML("beforeend", markup);
+}
 
-        gallery.innerHTML = renderImg;
+const getImages = async (params) => { 
+  try { 
+    const response = await api.get("", { params });
+    return response.data;
+  } catch(response) { 
+    throw new Error(response.statusText);
+  }
+}
 
-        lightbox.refresh();
-      } else {
+const createRequestToGetImages = (q) => { 
+  const pageSize = 40;
+  let page = 1; 
+  let isLastPage = false;
+
+  return async () => { 
+    try { 
+      if(isLastPage) return;
+
+      const { images, totalResults } = await getImages({ page, pageSize, q});
+
+      if (page >= Math.ceil(totalResults / pageSize)) { 
+        isLastPage = true;
+      }
+
+      page += 1;
+
+      lightbox.refresh();
+      return images;
+    } catch(error) { 
         iziToast.error({
           position: 'topRight',
           maxWidth: 432,
           message:
             'Sorry, there are no images matching your search query. Please try again!',
         });
-      }
-    })
-    .catch(error => {
-      console.log(error.message);
-    })
-    .finally(() => {
-      loader.style.display = 'none';
-    });
+    } finally { 
+        loader.style.display = 'none';
+    }
+  }
 }
 
-form.addEventListener('submit', event => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
+
   gallery.innerHTML = '';
+
   loader.style.display = 'block';
-  searchParamsDefaults.q = event.target.elements.search.value.trim();
-  const searchParams = new URLSearchParams(searchParamsDefaults);
-  searchImg(searchParams);
-  event.currentTarget.reset();
+  
+  const query = form.elements.search.value.trim();
+
+  const fetchImages = createRequestToGetImages(query);
+
+  const images = await fetchImages();
+  
+  renderImages(images);
 });
