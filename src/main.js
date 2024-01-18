@@ -20,6 +20,7 @@ const buttonLoadMore = document.querySelector('.second-btn');
 
 let page = 1; 
 let isLastPage = false;
+let query = "";
 
 
 const api = axios.create({
@@ -55,8 +56,8 @@ const getImages = async (params) => {
   try { 
     const response = await api.get("", { params });
     return response.data;
-  } catch(response) { 
-    throw new Error(response.statusText);
+  } catch(error) { 
+    throw new Error(error);
   }
 }
 
@@ -77,7 +78,12 @@ const createRequestToGetImages = async q => {
     page += 1;
 
     renderImages(hits);
-    buttonLoadMore.style.display = "block";
+    
+    if (hits.length < 40) { 
+      buttonLoadMore.style.display = "none";
+    } else { 
+      buttonLoadMore.style.display = "block";
+    }
 
     lightbox.refresh();
   } catch(error) { 
@@ -95,17 +101,20 @@ const createRequestToGetImages = async q => {
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
+  page = 1;
+
+  isLastPage = false;
+
   gallery.innerHTML = '';
 
   loader.style.display = 'block';
-  
-  let query = '';
-
-  if (form.elements.search.value.trim() != query) { 
-    page = 1;
-  }
 
   query = form.elements.search.value.trim();
+
+  if (!query) { 
+    loader.style.display = "none";
+    return;
+  }
 
   const images = await createRequestToGetImages(query); 
 });
