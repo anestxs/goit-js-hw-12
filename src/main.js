@@ -69,21 +69,16 @@ const createRequestToGetImages = async q => {
       return;
     }
 
-    const { hits, totalHits } = await getImages({ page, per_page, q});
+    const { hits, totalHits } = await getImages({ page, q});
 
     if (page >= Math.ceil(totalHits / per_page)) { 
-      isLastPage = true;
-    }
-
-    page += 1;
-
-    renderImages(hits);
-    
-    if (hits.length < 40) { 
       buttonLoadMore.style.display = "none";
+      isLastPage = true;
     } else { 
       buttonLoadMore.style.display = "block";
     }
+
+    renderImages(hits);
 
     lightbox.refresh();
   } catch(error) { 
@@ -124,17 +119,11 @@ buttonLoadMore.addEventListener('click', async (event) => {
 
   loader.style.display = 'block';
 
-  const query = form.elements.search.value.trim();
+  page += 1;
 
   const images = await createRequestToGetImages(query); 
 
-  const galleryItemHeight = document.querySelector('.gallery-item').getBoundingClientRect().height;
-
-  window.scrollBy({
-    top: galleryItemHeight * 2, 
-    behavior: 'smooth'
-  });
-
+  scrollPage();
 
   if (isLastPage) { 
     buttonLoadMore.style.display = "none";
@@ -147,3 +136,11 @@ buttonLoadMore.addEventListener('click', async (event) => {
   }
 });
 
+function scrollPage() { 
+  const galleryItemHeight = document.querySelector('.gallery-item').getBoundingClientRect().height;
+
+  window.scrollBy({
+    top: galleryItemHeight * 2, 
+    behavior: 'smooth'
+  });
+}
